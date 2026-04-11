@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #F9F6EF;
+  --color-surface:#F0ECE3;
+  --color-border:#E8DCC8;
+  --color-gold: #C9A84C;
+  --color-teal: #2D7D6F;
+  --color-ink: #1C1C2E;
+  --color-muted:#7A7A9A;
+  --font-arabic: "Amiri", serif;
+  --font-heading: "Cormorant Garamond", serif;
+  --font-body: "DM Sans", sans-serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.arabic-text {
+  font-family: var(--font-arabic);
+  direction: rtl;
+  line-height: 2.2;
+  font-size: 1.6rem;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  color: var(--color-ink);
+  margin: 0;
+}
+
+a, button {
+  transition: all 0.2s ease;
+}
