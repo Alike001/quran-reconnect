@@ -79,109 +79,115 @@ export default function Reader() {
   return (
     <div className="max-w-2xl mx-auto px-5 py-10 flex flex-col gap-6">
 
-      <div className="flex flex-col gap-1">
-        <h1
-          style={{ fontFamily: "var(--font-heading)", color: "var(--color-ink)" }}
-          className="text-3xl font-bold"
-        >
-          Ayah Reader
-        </h1>
-        <p className="text-sm" style={{ color: "var(--color-muted)" }}>
-          Continuing from {progress.surahName} · Ayah {progress.ayah}
-        </p>
-      </div>
-
-      {loading && <LoadingSpinner message="Loading verse..." />}
-
-      {error && !loading && (
-        <Card padding="normal" className="text-center flex flex-col items-center gap-3">
-          <p className="text-sm" style={{ color: "var(--color-muted)" }}>{error}</p>
-          <Button variant="secondary" size="sm" onClick={loadAyah}>
-            <RefreshCw size={14} /> Try Again
-          </Button>
-        </Card>
-      )}
-
-      {!loading && !error && ayah && (
-        <>
-          <AyahCard
-            ayah={ayah}
-            rightAction={
-              <BookmarkButton
-                isBookmarked={isBookmarked(ayah.surah, ayah.ayah)}
-                onToggle={() => toggleBookmark(ayah)}
-              />
-            }
-          />
-
-          <AudioPlayer
-            audioUrl={ayah.audioUrl}
-            ayahRef={`${ayah.surahName} ${ayah.surah}:${ayah.ayah}`}
-          />
-
-          <TafsirCard tafsir={tafsir} />
-
-          <div className="flex items-center justify-between gap-3 pt-2">
-            <Button
-              variant="secondary"
-              onClick={handlePrev}
-              disabled={isFirstAyah}
-            >
-              <ChevronLeft size={16} /> Previous
-            </Button>
-
-            <span className="text-sm font-medium" style={{ color: "var(--color-muted)" }}>
-              {progress.surah}:{progress.ayah}
-              {currentChapter && (
-                <span className="text-xs ml-1">/ {currentChapter.ayahCount}</span>
-              )}
-            </span>
-
-            <Button
-              variant="primary"
-              onClick={handleNext}
-              disabled={isLastAyah}
-            >
-              Next <ChevronRight size={16} />
-            </Button>
-          </div>
-        </>
-      )}
-
-      {chapters.length > 0 && (
-        <Card padding="normal" className="flex flex-col gap-3">
+      <div className="max-w-4xl mx-auto px-5 py-16 text-center">
           <p
-            style={{ fontFamily: "var(--font-heading)", color: "var(--color-ink)" }}
-            className="font-semibold text-lg"
+            className="arabic-text mb-4"
+            style={{ color: "var(--color-teal)", fontSize: "2rem" }}
           >
-            Jump to a Surah
+            ٱقْرَأْ
           </p>
-          <select
-            onChange={(e) => {
-              const val = e.target.value
-              if (!val) return
-              const [s, a] = val.split(":").map(Number)
-              const ch = chapters.find((c) => c.id === s)
-              markRead(s, a, ch?.name ?? "")
-            }}
-            className="w-full px-4 py-2 rounded-xl text-sm border"
-            style={{
-              borderColor: "var(--color-border)",
-              backgroundColor: "var(--color-bg)",
-              color: "var(--color-ink)",
-              fontFamily: "var(--font-body)",
-            }}
-            defaultValue=""
+          <h1
+            style={{ fontFamily: "var(--font-heading)", color: "var(--color-ink)" }}
+            className="text-4xl font-bold mb-3"
           >
-            <option value="" disabled>Select a Surah...</option>
-            {chapters.map((ch) => (
-              <option key={ch.id} value={`${ch.id}:1`}>
-                {ch.id}. {ch.name} — {ch.arabicName}
-              </option>
-            ))}
-          </select>
-        </Card>
-      )}
+            Ayah Reader
+          </h1>
+          <p className="text-sm" style={{ color: "var(--color-muted)" }}>
+              Continuing from {progress.surahName} · Ayah {progress.ayah}
+            </p>
+        </div>
+
+        {loading && <LoadingSpinner message="Loading verse..." />}
+
+        {error && !loading && (
+          <Card padding="normal" className="text-center flex flex-col items-center gap-3">
+            <p className="text-sm" style={{ color: "var(--color-muted)" }}>{error}</p>
+            <Button variant="secondary" size="sm" onClick={loadAyah}>
+              <RefreshCw size={14} /> Try Again
+            </Button>
+          </Card>
+        )}
+
+        {!loading && !error && ayah && (
+          <>
+            <AyahCard
+              ayah={ayah}
+              rightAction={
+                <BookmarkButton
+                  isBookmarked={isBookmarked(ayah.surah, ayah.ayah)}
+                  onToggle={() => toggleBookmark(ayah)}
+                />
+              }
+            />
+
+            <AudioPlayer
+              audioUrl={ayah.audioUrl}
+              ayahRef={`${ayah.surahName} ${ayah.surah}:${ayah.ayah}`}
+            />
+
+            <TafsirCard tafsir={tafsir} />
+
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <Button
+                variant="secondary"
+                onClick={handlePrev}
+                disabled={isFirstAyah}
+              >
+                <ChevronLeft size={16} /> Previous
+              </Button>
+
+              <span className="text-sm font-medium" style={{ color: "var(--color-muted)" }}>
+                {progress.surah}:{progress.ayah}
+                {currentChapter && (
+                  <span className="text-xs ml-1">/ {currentChapter.ayahCount}</span>
+                )}
+              </span>
+
+              <Button
+                variant="primary"
+                onClick={handleNext}
+                disabled={isLastAyah}
+              >
+                Next <ChevronRight size={16} />
+              </Button>
+            </div>
+          </>
+        )}
+
+        {chapters.length > 0 && (
+          <Card padding="normal" className="flex flex-col gap-3">
+            <p
+              style={{ fontFamily: "var(--font-heading)", color: "var(--color-ink)" }}
+              className="font-semibold text-lg"
+            >
+              Jump to a Surah
+            </p>
+            <select
+              onChange={(e) => {
+                const val = e.target.value
+                if (!val) return
+                const [s, a] = val.split(":").map(Number)
+                const ch = chapters.find((c) => c.id === s)
+                markRead(s, a, ch?.name ?? "")
+              }}
+              className="w-full px-4 py-2 rounded-xl text-sm border"
+              style={{
+                borderColor: "var(--color-border)",
+                backgroundColor: "var(--color-bg)",
+                color: "var(--color-ink)",
+                fontFamily: "var(--font-body)",
+              }}
+              defaultValue=""
+            >
+              <option value="" disabled>Select a Surah...</option>
+              {chapters.map((ch) => (
+                <option key={ch.id} value={`${ch.id}:1`}>
+                  {ch.id}. {ch.name} — {ch.arabicName}
+                </option>
+              ))}
+            </select>
+          </Card>
+        )}
 
     </div>
   )
