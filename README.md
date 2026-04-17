@@ -58,7 +58,7 @@ Used for:
 - Frontend: React + Vite  
 - Backend: Node.js (handles authentication and secure API calls)  
 
-## 🚀 Local Setup
+## Local Setup
 
 ### 1. Clone repository
 
