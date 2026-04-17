@@ -115,10 +115,16 @@ function getSession(req, res) {
   if (!sessionId || !sessions.has(sessionId)) {
     sessionId = crypto.randomUUID()
     sessions.set(sessionId, {})
-    res.setHeader(
-      "Set-Cookie",
-      `${SESSION_COOKIE}=${sessionId}; HttpOnly; Path=/; SameSite=Lax`
-    )
+
+    const cookieParts = [
+      `${SESSION_COOKIE}=${sessionId}`,
+      "HttpOnly",
+      "Path=/",
+      "SameSite=None",
+      "Secure",
+    ]
+
+    res.setHeader("Set-Cookie", cookieParts.join("; "))
   }
 
   return { sessionId, session: sessions.get(sessionId) }
@@ -126,10 +132,17 @@ function getSession(req, res) {
 
 function clearSession(sessionId, res) {
   if (sessionId) sessions.delete(sessionId)
-  res.setHeader(
-    "Set-Cookie",
-    `${SESSION_COOKIE}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`
-  )
+
+  const cookieParts = [
+    `${SESSION_COOKIE}=`,
+    "HttpOnly",
+    "Path=/",
+    "Max-Age=0",
+    "SameSite=None",
+    "Secure",
+  ]
+
+  res.setHeader("Set-Cookie", cookieParts.join("; "))
 }
 
 async function readBody(req) {
