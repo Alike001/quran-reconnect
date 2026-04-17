@@ -1,26 +1,41 @@
-import { useState, useEffect } from "react"
-import { getStreak, recordReadingSession } from "../services/userApi"
+import { useEffect, useState } from "react"
+import { getStreak } from "../services/userApi"
 
 export function useStreak() {
   const [streak, setStreak] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getStreak()
-      .then(setStreak)
-      .catch(() => setStreak({ current: 0, longest: 0, totalDaysRead: 0 }))
-      .finally(() => setLoading(false))
+    let active = true
+
+    async function load() {
+      try {
+        const data = await getStreak()
+        if (active) setStreak(data)
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    load()
+
+    function handleUpdate(event) {
+      if (event?.detail) {
+        setStreak(event.detail)
+      } else {
+        load()
+      }
+    }
+
+    window.addEventListener("qr-streak-updated", handleUpdate)
+    window.addEventListener("focus", load)
+
+    return () => {
+      active = false
+      window.removeEventListener("qr-streak-updated", handleUpdate)
+      window.removeEventListener("focus", load)
+    }
   }, [])
 
-  // Call this when the user reads an ayah today
-  async function recordToday() {
-    try {
-      const updated = await recordReadingSession()
-      setStreak(updated)
-    } catch {
-      // Fail silently — streak recording is non-critical
-    }
-  }
-
-  return { streak, loading, recordToday }
+  return { streak, loading }
 }

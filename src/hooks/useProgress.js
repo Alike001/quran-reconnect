@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
+import { recordReadingSession } from "../services/userApi"
 
 const STORAGE_KEY = "qr_last_read"
-
 const DEFAULT_PROGRESS = { surah: 1, ayah: 1, surahName: "Al-Fatihah" }
 
 export function useProgress() {
@@ -34,6 +34,8 @@ export function useProgress() {
 
       return { surah, ayah, surahName }
     })
+
+    recordReadingSession(surah, ayah).catch(() => {})
   }, [])
 
   const nextAyah = useCallback((maxAyah, nextSurah, nextSurahName) => {

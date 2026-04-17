@@ -1,44 +1,62 @@
-import { useState, useEffect } from "react"
-
-const STORAGE_KEY = "qr_bookmarks"
+import { useEffect, useState } from "react"
+import { addBookmark, getBookmarks, removeBookmark } from "../services/userApi"
 
 export function useBookmarks() {
-  const [bookmarks, setBookmarks] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      return saved ? JSON.parse(saved) : []
-    } catch {
-      return []
-    }
-  })
+  const [bookmarks, setBookmarks] = useState([])
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(bookmarks))
-    } catch {
-      console.warn("Could not save bookmarks")
+    let active = true
+
+    async function load() {
+      try {
+        const data = await getBookmarks()
+        if (active) setBookmarks(data)
+      } finally {
+        if (active) setLoaded(true)
+      }
     }
-  }, [bookmarks])
+
+    load()
+
+    function handleUpdate(event) {
+      if (event?.detail && active) {
+        setBookmarks(event.detail)
+      } else {
+        load()
+      }
+    }
+
+    window.addEventListener("qr-bookmarks-updated", handleUpdate)
+
+    return () => {
+      active = false
+      window.removeEventListener("qr-bookmarks-updated", handleUpdate)
+    }
+  }, [])
 
   function isBookmarked(surah, ayah) {
-    return bookmarks.some((b) => b.surah === surah && b.ayah === ayah)
+    return bookmarks.some(
+      (bookmark) =>
+        Number(bookmark.surah) === Number(surah) &&
+        Number(bookmark.ayah) === Number(ayah)
+    )
   }
 
-  function toggleBookmark(ayahData) {
-    const { surah, ayah } = ayahData
-    if (isBookmarked(surah, ayah)) {
-      setBookmarks((prev) => prev.filter((b) => !(b.surah === surah && b.ayah === ayah)))
-    } else {
-      setBookmarks((prev) => [
-        { ...ayahData, savedAt: new Date().toISOString() },
-        ...prev,
-      ])
+  async function toggleBookmark(ayahData) {
+    const existing = bookmarks.find(
+      (bookmark) =>
+        Number(bookmark.surah) === Number(ayahData.surah) &&
+        Number(bookmark.ayah) === Number(ayahData.ayah)
+    )
+
+    if (existing) {
+      await removeBookmark(existing)
+      return
     }
+
+    await addBookmark(ayahData)
   }
 
-  function clearAll() {
-    setBookmarks([])
-  }
-
-  return { bookmarks, isBookmarked, toggleBookmark, clearAll }
+  return { bookmarks, loaded, isBookmarked, toggleBookmark }
 }

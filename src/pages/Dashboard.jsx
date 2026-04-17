@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
-import { BookOpen, Bookmark, PenLine, Trash2 } from "lucide-react"
+import { useNavigate, useSearchParams } from "react-router-dom"
+import { Bookmark, BookOpen, PenLine, Trash2 } from "lucide-react"
 
 import { getBookmarks, getReflections, deleteReflection } from "../services/userApi"
 import { useStreak } from "../hooks/useStreak"
+import { useAuth } from "../hooks/useAuth"
 
 import StreakCard from "../components/dashboard/StreakCard"
 import DashboardCard from "../components/dashboard/DashboardCard"
@@ -15,54 +16,68 @@ import Button from "../components/ui/Button"
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { streak, loading: streakLoading } = useStreak()
+  const { loggedIn, user, loading: authLoading, login, logout } = useAuth()
 
   const [bookmarks, setBookmarks] = useState([])
   const [reflections, setReflections] = useState([])
   const [loading, setLoading] = useState(true)
 
-  // Load last-read progress from localStorage (set by Reader)
+  const authError = searchParams.get("authError")
+  const authSuccess = searchParams.get("authSuccess")
+
   const lastRead = (() => {
     try {
       const saved = localStorage.getItem("qr_last_read")
       return saved ? JSON.parse(saved) : null
-    } catch { return null }
+    } catch {
+      return null
+    }
   })()
 
-  // Load bookmarks and reflections
   useEffect(() => {
-    Promise.all([getBookmarks(), getReflections()])
-      .then(([bm, ref]) => {
-        setBookmarks(bm)
-        setReflections(ref)
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
+  Promise.all([getBookmarks(), getReflections()])
+    .then(([bookmarkData, reflectionData]) => {
+      setBookmarks(bookmarkData)
+      setReflections(reflectionData)
+    })
+    .finally(() => setLoading(false))
+}, [])
 
-  // Called by ReflectionForm after a successful save
+  useEffect(() => {
+    if (!authError && !authSuccess) return
+
+    const next = new URLSearchParams(searchParams)
+    next.delete("authError")
+    next.delete("authSuccess")
+
+    const timer = setTimeout(() => {
+      setSearchParams(next, { replace: true })
+    }, 3500)
+
+    return () => clearTimeout(timer)
+  }, [authError, authSuccess, searchParams, setSearchParams])
+
   function handleReflectionSaved(newEntry) {
-    setReflections((prev) => [newEntry, ...prev])
+    setReflections((current) => [newEntry, ...current])
   }
 
-  // Delete a reflection
   async function handleDeleteReflection(id) {
-    try {
-      await deleteReflection(id)
-      setReflections((prev) => prev.filter((r) => r.id !== id))
-    } catch {
-      // ignore error
-    }
+    await deleteReflection(id)
+    setReflections((current) => current.filter((item) => item.id !== id))
   }
 
   function formatDate(isoString) {
     if (!isoString) return ""
     return new Date(isoString).toLocaleDateString("en-US", {
-      month: "short", day: "numeric", year: "numeric",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     })
   }
 
-  if (loading || streakLoading) {
+  if (loading || streakLoading || authLoading) {
     return (
       <div className="max-w-2xl mx-auto px-5 py-16">
         <LoadingSpinner message="Loading your dashboard..." />
@@ -72,7 +87,6 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-2xl mx-auto px-5 py-10 flex flex-col gap-8">
-
       <div>
         <h1
           style={{ fontFamily: "var(--font-heading)", color: "var(--color-ink)" }}
@@ -84,6 +98,42 @@ export default function Dashboard() {
           Track your Quran habit and reflections
         </p>
       </div>
+
+      {(authError || authSuccess) && (
+        <Card padding="normal">
+          <p className="text-sm" style={{ color: authError ? "#C0392B" : "var(--color-teal)" }}>
+            {authError
+              ? `Quran Foundation sign-in failed: ${authError}`
+              : "Quran Foundation sign-in complete."}
+          </p>
+        </Card>
+      )}
+
+      <Card padding="normal" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p
+            style={{ fontFamily: "var(--font-heading)", color: "var(--color-ink)" }}
+            className="font-semibold text-lg"
+          >
+            Quran Foundation Account
+          </p>
+          <p className="text-sm" style={{ color: "var(--color-muted)" }}>
+            {loggedIn
+              ? `Signed in as ${user?.name || user?.email || "Quran Foundation user"}`
+              : "Sign in to sync bookmarks and reading progress with Quran Foundation."}
+          </p>
+        </div>
+
+        {loggedIn ? (
+          <Button variant="secondary" size="sm" onClick={logout}>
+            Sign Out
+          </Button>
+        ) : (
+          <Button size="sm" onClick={login}>
+            Sign In
+          </Button>
+        )}
+      </Card>
 
       <StreakCard streak={streak} />
 
@@ -135,45 +185,60 @@ export default function Dashboard() {
           />
         ) : (
           <div className="flex flex-col gap-3">
-            {bookmarks.map((bm) => (
-              <Card key={`${bm.surah}:${bm.ayah}`} padding="normal" className="flex flex-col gap-2">
+            {bookmarks.map((bookmark) => (
+              <Card key={`${bookmark.surah}:${bookmark.ayah}`} padding="normal" className="flex flex-col gap-2">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
                       style={{ fontFamily: "var(--font-heading)", color: "var(--color-ink)" }}
                       className="font-semibold"
                     >
-                      {bm.surahName}
+                      {bookmark.surahName}
                     </span>
                     <span
                       className="text-xs px-2 py-0.5 rounded-lg"
-                      style={{ backgroundColor: "rgba(201,168,76,0.12)", color: "var(--color-gold-dark)" }}
+                      style={{
+                        backgroundColor: "rgba(201,168,76,0.12)",
+                        color: "var(--color-gold-dark)",
+                      }}
                     >
-                      {bm.surah}:{bm.ayah}
+                      {bookmark.surah}:{bookmark.ayah}
                     </span>
                   </div>
-  
+
                   <button
                     onClick={() => navigate("/reader")}
                     className="text-xs flex-shrink-0"
-                    style={{ color: "var(--color-teal)", background: "none", border: "none", cursor: "pointer" }}
+                    style={{
+                      color: "var(--color-teal)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
                   >
                     Read →
                   </button>
                 </div>
 
-                {bm.arabic && (
+                {bookmark.arabic && (
                   <p
                     className="arabic-text text-right text-xl leading-loose"
                     style={{ color: "var(--color-ink)" }}
+                    translate="no"
                   >
-                    {bm.arabic}
+                    {bookmark.arabic}
                   </p>
                 )}
 
-                {bm.savedAt && (
+                {bookmark.translation && (
+                  <p className="text-sm italic" style={{ color: "var(--color-ink-light)" }}>
+                    "{bookmark.translation}"
+                  </p>
+                )}
+
+                {bookmark.savedAt && (
                   <p className="text-xs" style={{ color: "var(--color-muted)" }}>
-                    Saved {formatDate(bm.savedAt)}
+                    Saved on {formatDate(bookmark.savedAt)}
                   </p>
                 )}
               </Card>
@@ -208,7 +273,6 @@ export default function Dashboard() {
           <div className="flex flex-col gap-3">
             {reflections.map((r) => (
               <Card key={r.id} padding="normal" className="flex flex-col gap-2">
-               
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex flex-col gap-0.5">
                     {r.ayahRef && (
@@ -246,7 +310,7 @@ export default function Dashboard() {
           </div>
         )}
       </section>
-      
+
       <Card padding="normal" className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <BookOpen size={20} style={{ color: "var(--color-teal)" }} />
@@ -265,7 +329,6 @@ export default function Dashboard() {
           Go to Reader →
         </Button>
       </Card>
-
     </div>
   )
 }

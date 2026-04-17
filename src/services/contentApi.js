@@ -1,90 +1,69 @@
 import { config } from "../config"
-import {
-  mockAyah,
-  mockChapters,
-} from "./mockData"
+import { mockAyah, mockChapters } from "./mockData"
+
+const delay = (ms) => new Promise((res) => setTimeout(res, ms))
+
+function withMockAyah(surah, ayah) {
+  return {
+    ...mockAyah,
+    id: `${surah}:${ayah}`,
+    surah,
+    ayah,
+  }
+}
 
 async function apiFetch(endpoint) {
-  const res = await fetch(`${config.CONTENT_API_BASE}${endpoint}`, {
+  const res = await fetch(`${config.API_BASE}${endpoint}`, {
+    credentials: "include",
     headers: {
-      "Authorization":`Bearer ${config.API_KEY}`,
-      "Content-Type": "application/json",
+      Accept: "application/json",
     },
   })
-  if (!res.ok) throw new Error(`Content API error: ${res.status}`)
-  return res.json()
+
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data.error || `Content API error (${res.status})`)
+  }
+  return data
 }
 
 export async function getAyah(surah, ayah) {
-  if (config.USE_MOCK_DATA) {
-    await delay(400)
-    return { ...mockAyah, surah, ayah }
-  }
-
-  const data = await apiFetch(
-    `/verses/${surah}/${ayah}?translation=${config.DEFAULT_TRANSLATION}&audio=true`
-  )
-
-  return {
-    id: `${surah}:${ayah}`,
-    surah: data.chapter_id,
-    ayah: data.verse_number,
-    surahName: data.chapter_name_simple,
-    arabic: data.text_uthmani,
-    translation: data.translations?.[0]?.text ?? "",
-    audioUrl: data.audio?.url ?? "",
-    juz: data.juz_number,
+  try {
+    const data = await apiFetch(`/content/ayah/${surah}/${ayah}`)
+    return data.verse
+  } catch (error) {
+    if (!config.USE_MOCK_FALLBACK) throw error
+    await delay(200)
+    return withMockAyah(surah, ayah)
   }
 }
 
 export async function getTafsir(surah, ayah) {
-  if (config.USE_MOCK_DATA) {
-    await delay(300)
+  try {
+    const data = await apiFetch(`/content/ayah/${surah}/${ayah}`)
+    return data.verse.tafsir || { text: "No tafsir available.", source: "Tafsir" }
+  } catch (error) {
+    if (!config.USE_MOCK_FALLBACK) throw error
+    await delay(120)
     return {
       text: mockAyah.tafsir,
-      source: "Ibn Kathir (Mock)",
+      source: "Mock Tafsir",
     }
-  }
-
-  const data = await apiFetch(
-    `/verses/${surah}/${ayah}/tafsir?tafsir=${config.DEFAULT_TAFSIR}`
-  )
-
-  return {
-    text:   data.tafsir?.text ?? "No tafsir available.",
-    source: data.tafsir?.source_name ?? "Tafsir",
   }
 }
 
 export async function getChapters() {
-  if (config.USE_MOCK_DATA) {
-    await delay(200)
+  try {
+    const data = await apiFetch("/content/chapters")
+    return data.chapters
+  } catch (error) {
+    if (!config.USE_MOCK_FALLBACK) throw error
+    await delay(120)
     return mockChapters
   }
-
-  const data = await apiFetch("/chapters")
-  return data.chapters.map((ch) => ({
-    id: ch.id,
-    name: ch.name_simple,
-    arabicName: ch.name_arabic,
-    ayahCount: ch.verses_count,
-    revelationType: ch.revelation_place,
-  }))
 }
 
 export async function getChapter(surahId) {
-  if (config.USE_MOCK_DATA) {
-    await delay(200)
-    return mockChapters.find((c) => c.id === surahId) ?? mockChapters[0]
-  }
-  const data = await apiFetch(`/chapters/${surahId}`)
-  return {
-    id: data.chapter.id,
-    name: data.chapter.name_simple,
-    arabicName: data.chapter.name_arabic,
-    ayahCount: data.chapter.verses_count,
-    revelationType: data.chapter.revelation_place,
-  }
+  const chapters = await getChapters()
+  return chapters.find((chapter) => chapter.id === Number(surahId)) || null
 }
-
-const delay = (ms) => new Promise((res) => setTimeout(res, ms))

@@ -7,6 +7,8 @@ export default function TafsirCard({ tafsir }) {
 
   if (!tafsir) return null
 
+  const hasTafsir = Boolean(tafsir.text && tafsir.text.trim())
+
   return (
     <Card padding="normal">
       <button
@@ -16,13 +18,19 @@ export default function TafsirCard({ tafsir }) {
       >
         <div className="flex items-center gap-2">
           <BookOpenText size={17} style={{ color: "var(--color-gold)" }} />
+
           <span
-            style={{ fontFamily: "var(--font-heading)", color: "var(--color-ink)", fontSize: "1.05rem" }}
+            style={{
+              fontFamily: "var(--font-heading)",
+              color: "var(--color-ink)",
+              fontSize: "1.05rem",
+            }}
             className="font-semibold"
           >
             Tafsir
           </span>
-          {tafsir.source && (
+
+          {hasTafsir && tafsir.source && (
             <span
               className="text-xs px-2 py-0.5 rounded-md"
               style={{
@@ -35,10 +43,11 @@ export default function TafsirCard({ tafsir }) {
           )}
         </div>
 
-        {expanded
-          ? <ChevronUp size={16} style={{ color: "var(--color-muted)" }} />
-          : <ChevronDown size={16} style={{ color: "var(--color-muted)" }} />
-        }
+        {expanded ? (
+          <ChevronUp size={16} style={{ color: "var(--color-muted)" }} />
+        ) : (
+          <ChevronDown size={16} style={{ color: "var(--color-muted)" }} />
+        )}
       </button>
 
       {expanded && (
@@ -49,7 +58,13 @@ export default function TafsirCard({ tafsir }) {
             borderTop: "1px solid var(--color-border)",
           }}
         >
-          {tafsir.text}
+          {hasTafsir ? (
+            tafsir.text
+          ) : (
+            <p className="italic text-gray-500">
+              Tafsir is temporarily unavailable for this verse.
+            </p>
+          )}
         </div>
       )}
 
