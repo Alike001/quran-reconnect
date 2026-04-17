@@ -434,11 +434,11 @@ async function handleAuthLogin(session, res) {
     response_type: "code",
     client_id: QF_CLIENT_ID,
     redirect_uri: QF_REDIRECT_URI,
-    scope: "openid offline_access user bookmark reading_session",
-    code_challenge: codeChallenge,
-    code_challenge_method: "S256",
+    scope: "openid offline_access user collection",
     state,
     nonce,
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
   })
 
   redirect(res, `${AUTH_BASE}/oauth2/auth?${params.toString()}`)
