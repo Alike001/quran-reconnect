@@ -75,6 +75,12 @@ const contentTokenCache = {
   inflight: null,
 }
 
+const chaptersCache = {
+  data: null,
+  expiresAt: 0,
+  inflight: null,
+}
+
 function sendJson(res, statusCode, data) {
   const body = JSON.stringify(data)
   res.writeHead(statusCode, {
@@ -351,6 +357,72 @@ async function userFetch(session, pathname, { method = "GET", body, retry401 = t
   return data
 }
 
+async function getChaptersList() {
+  const now = Date.now()
+  if (chaptersCache.data && now < chaptersCache.expiresAt) return chaptersCache.data
+  if (chaptersCache.inflight) return chaptersCache.inflight
+
+  chaptersCache.inflight = (async () => {
+    const data = await contentFetch("/chapters")
+    chaptersCache.data = data.chapters || []
+    chaptersCache.expiresAt = Date.now() + 24 * 60 * 60 * 1000
+    return chaptersCache.data
+  })()
+
+  try {
+    return await chaptersCache.inflight
+  } finally {
+    chaptersCache.inflight = null
+  }
+}
+
+async function resolveSurahName(surahId, fallback = `Surah ${surahId}`) {
+  try {
+    const chapters = await getChaptersList()
+    const chapter = chapters.find((ch) => Number(ch.id) === Number(surahId))
+    if (chapter) return chapter.name_simple || chapter.name_arabic || fallback
+  } catch (error) {
+    console.warn("Could not resolve chapter name from chapters endpoint.", error)
+  }
+  return fallback
+}
+
+function mapVerse(verse, surahName, fallbackKey = "") {
+  const verseKey = verse.verse_key || fallbackKey
+  const [keySurah, keyAyah] = String(verseKey).split(":")
+
+  const derivedSurah = Number(verse.chapter_id) || Number(keySurah)
+  const derivedAyah = Number(verse.verse_number) || Number(keyAyah)
+
+  const translationText = stripHtml(
+    verse.translations?.[0]?.text ||
+      verse.translation?.text ||
+      ""
+  )
+
+  const tafsirText = stripHtml(
+    verse.tafsirs?.[0]?.text ||
+      verse.tafsir?.text ||
+      ""
+  )
+
+  return {
+    id: verseKey || `${derivedSurah}:${derivedAyah}`,
+    surah: derivedSurah,
+    ayah: derivedAyah,
+    surahName,
+    arabic: verse.text_uthmani || "",
+    translation: translationText,
+    audioUrl: normalizeAudioUrl(verse.audio?.url || ""),
+    juz: verse.juz_number || null,
+    revelationType: "",
+    tafsir: {
+      text: tafsirText,
+      source: verse.tafsirs?.[0]?.resource_name || "Tafsir",
+    },
+  }
+}
+
 async function fetchVerseDetails(surah, ayah) {
   const verseKey = `${surah}:${ayah}`
 
@@ -367,60 +439,60 @@ async function fetchVerseDetails(surah, ayah) {
   const verse = data.verse
   if (!verse) throw new Error("Verse not found")
 
-  const derivedSurah =
+  const surahId =
     Number(verse.chapter_id) ||
     Number(String(verse.verse_key || verseKey).split(":")[0]) ||
     Number(surah)
 
-  const derivedAyah =
-    Number(verse.verse_number) ||
-    Number(String(verse.verse_key || verseKey).split(":")[1]) ||
-    Number(ayah)
+  const surahName = await resolveSurahName(surahId)
+  return mapVerse(verse, surahName, verseKey)
+}
 
-  let surahName = `Surah ${derivedSurah}`
-
-  try {
-    const chapterData = await contentFetch("/chapters")
-    const chapter = (chapterData.chapters || []).find((ch) => Number(ch.id) === derivedSurah)
-    if (chapter) {
-      surahName = chapter.name_simple || chapter.name_arabic || surahName
-    }
-  } catch (error) {
-    console.warn("Could not resolve chapter name from chapters endpoint.", error)
+async function fetchSurahDetails(surahId) {
+  const id = Number(surahId)
+  if (!id || id < 1 || id > 114) {
+    const err = new Error("Invalid surah id")
+    err.statusCode = 400
+    throw err
   }
 
-  const translationText = stripHtml(
-    verse.translations?.[0]?.text ||
-      verse.translation?.text ||
-      ""
-  )
+  const params = new URLSearchParams({
+    translations: QF_TRANSLATION_ID,
+    tafsirs: QF_TAFSIR_ID,
+    audio: QF_RECITATION_ID,
+    fields: "text_uthmani,chapter_id,verse_key,verse_number,juz_number",
+    translation_fields: "resource_name,language_name,text",
+    tafsir_fields: "resource_name,language_name,text",
+    per_page: "300",
+  })
 
-  const tafsirText = stripHtml(
-    verse.tafsirs?.[0]?.text ||
-      verse.tafsir?.text ||
-      ""
-  )
+  const [data, chapters] = await Promise.all([
+    contentFetch(`/verses/by_chapter/${id}?${params.toString()}`),
+    getChaptersList(),
+  ])
+
+  const chapter = chapters.find((ch) => Number(ch.id) === id)
+  const surahName = chapter?.name_simple || chapter?.name_arabic || `Surah ${id}`
+  const verses = (data.verses || []).map((v) => mapVerse(v, surahName, `${id}:${v.verse_number}`))
 
   return {
-    id: verse.verse_key || `${derivedSurah}:${derivedAyah}`,
-    surah: derivedSurah,
-    ayah: derivedAyah,
-    surahName,
-    arabic: verse.text_uthmani || "",
-    translation: translationText,
-    audioUrl: normalizeAudioUrl(verse.audio?.url || ""),
-    juz: verse.juz_number || null,
-    revelationType: "",
-    tafsir: {
-      text: tafsirText,
-      source: verse.tafsirs?.[0]?.resource_name || "Tafsir",
-    },
+    chapter: chapter
+      ? {
+          id: chapter.id,
+          name: chapter.name_simple,
+          arabicName: chapter.name_arabic,
+          ayahCount: chapter.verses_count,
+          revelationType: chapter.revelation_place,
+          bismillahPre: chapter.bismillah_pre,
+        }
+      : { id, name: surahName, ayahCount: verses.length },
+    verses,
   }
 }
 
 async function handleContentChapters(res) {
-  const data = await contentFetch("/chapters")
-  const chapters = (data.chapters || []).map((ch) => ({
+  const list = await getChaptersList()
+  const chapters = list.map((ch) => ({
     id: ch.id,
     name: ch.name_simple,
     arabicName: ch.name_arabic,
@@ -433,6 +505,11 @@ async function handleContentChapters(res) {
 async function handleContentAyah(res, surah, ayah) {
   const verse = await fetchVerseDetails(surah, ayah)
   sendJson(res, 200, { success: true, verse })
+}
+
+async function handleContentSurah(res, surahId) {
+  const data = await fetchSurahDetails(surahId)
+  sendJson(res, 200, { success: true, ...data })
 }
 
 async function handleAuthLogin(session, res) {
@@ -650,6 +727,12 @@ const server = http.createServer(async (req, res) => {
     const ayahMatch = urlObj.pathname.match(/^\/api\/content\/ayah\/(\d+)\/(\d+)$/)
     if (req.method === "GET" && ayahMatch) {
       await handleContentAyah(res, Number(ayahMatch[1]), Number(ayahMatch[2]))
+      return
+    }
+
+    const surahMatch = urlObj.pathname.match(/^\/api\/content\/surah\/(\d+)$/)
+    if (req.method === "GET" && surahMatch) {
+      await handleContentSurah(res, Number(surahMatch[1]))
       return
     }
 

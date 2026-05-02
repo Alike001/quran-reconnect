@@ -38,16 +38,16 @@ export async function getAyah(surah, ayah) {
   }
 }
 
-export async function getTafsir(surah, ayah) {
+export async function getSurah(surahId) {
   try {
-    const data = await apiFetch(`/content/ayah/${surah}/${ayah}`)
-    return data.verse.tafsir || { text: "No tafsir available.", source: "Tafsir" }
+    const data = await apiFetch(`/content/surah/${surahId}`)
+    return { chapter: data.chapter, verses: data.verses || [] }
   } catch (error) {
     if (!config.USE_MOCK_FALLBACK) throw error
-    await delay(120)
+    await delay(200)
     return {
-      text: mockAyah.tafsir,
-      source: "Mock Tafsir",
+      chapter: { id: surahId, name: "Mock Surah", ayahCount: 1 },
+      verses: [withMockAyah(surahId, 1)],
     }
   }
 }

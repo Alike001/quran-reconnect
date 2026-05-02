@@ -65,7 +65,7 @@ export async function getAuthStatus() {
 }
 
 export function loginWithQuranFoundation() {
-  window.location.href = "https://quranreconnect-backend.onrender.com/api/auth/login"
+  window.location.href = `${config.API_BASE}/auth/login`
 }
 
 export async function logoutFromQuranFoundation() {
