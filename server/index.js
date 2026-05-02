@@ -458,11 +458,9 @@ async function fetchSurahDetails(surahId) {
 
   const params = new URLSearchParams({
     translations: QF_TRANSLATION_ID,
-    tafsirs: QF_TAFSIR_ID,
     audio: QF_RECITATION_ID,
     fields: "text_uthmani,chapter_id,verse_key,verse_number,juz_number",
     translation_fields: "resource_name,language_name,text",
-    tafsir_fields: "resource_name,language_name,text",
     per_page: "300",
   })
 

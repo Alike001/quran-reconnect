@@ -2,9 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import {
   Play,
   Pause,
-  ChevronUp,
-  ChevronDown,
-  BookOpenText,
   SkipBack,
   SkipForward,
   Volume2,
@@ -22,15 +19,12 @@ function formatTime(secs) {
 }
 
 function VerseRow({ verse, isPlaying, onTogglePlay, isBookmarked, onToggleBookmark, registerRef }) {
-  const [expandTafsir, setExpandTafsir] = useState(false)
   const ref = useRef(null)
 
   useEffect(() => {
     registerRef(verse.ayah, ref.current)
     return () => registerRef(verse.ayah, null)
   }, [verse.ayah, registerRef])
-
-  const hasTafsir = Boolean(verse.tafsir?.text && verse.tafsir.text.trim())
 
   return (
     <div
@@ -99,50 +93,6 @@ function VerseRow({ verse, isPlaying, onTogglePlay, isBookmarked, onToggleBookma
         </p>
       )}
 
-      {hasTafsir && (
-        <div style={{ borderTop: "1px solid var(--color-border)" }} className="pt-3">
-          <button
-            onClick={() => setExpandTafsir((v) => !v)}
-            className="w-full flex items-center justify-between gap-2 text-left"
-            aria-expanded={expandTafsir}
-          >
-            <span className="flex items-center gap-2">
-              <BookOpenText size={14} style={{ color: "var(--color-gold)" }} />
-              <span
-                className="text-sm font-semibold"
-                style={{ fontFamily: "var(--font-heading)", color: "var(--color-ink)" }}
-              >
-                Tafsir
-              </span>
-              {verse.tafsir.source && (
-                <span
-                  className="text-xs px-1.5 py-0.5 rounded-md"
-                  style={{
-                    backgroundColor: "rgba(201,168,76,0.12)",
-                    color: "var(--color-gold-dark)",
-                  }}
-                >
-                  {verse.tafsir.source}
-                </span>
-              )}
-            </span>
-            {expandTafsir ? (
-              <ChevronUp size={15} style={{ color: "var(--color-muted)" }} />
-            ) : (
-              <ChevronDown size={15} style={{ color: "var(--color-muted)" }} />
-            )}
-          </button>
-
-          {expandTafsir && (
-            <p
-              className="mt-3 text-sm leading-relaxed"
-              style={{ color: "var(--color-ink-light)" }}
-            >
-              {verse.tafsir.text}
-            </p>
-          )}
-        </div>
-      )}
     </div>
   )
 }
